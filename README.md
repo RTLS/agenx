@@ -1,21 +1,17 @@
 # Agenx
 
-**TODO: Add description**
+Baby AGI in Elixir.
 
-## Installation
+## How To Use
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `agenx` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:agenx, "~> 0.1.0"}
-  ]
-end
+```bash
+mix deps.get
+iex -S mix
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/agenx>.
+Then in the iex shell:
+
+```elixir
+Agenx.start("some goal")
+```
 
