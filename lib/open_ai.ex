@@ -1,6 +1,8 @@
 defmodule Agenx.OpenAI do
   use Tesla
 
+  require Logger
+
   @openai_api_key Application.compile_env!(:agenx, :openai_api_key)
 
   @completions_defaults %{
@@ -35,6 +37,8 @@ defmodule Agenx.OpenAI do
   """
   def completion(%{prompt: _} = params) do
     params = Map.merge(@completions_defaults, params)
+
+    Logger.debug("Completion with prompt:\n#{params.prompt}")
 
     "/completions"
     |> post(params)

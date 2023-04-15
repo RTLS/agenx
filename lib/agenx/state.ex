@@ -2,16 +2,24 @@ defmodule Agenx.State do
   alias __MODULE__
   alias Agenx.State.Action
 
-  defstruct [:goal, :context, previous_actions: []]
+  @type t :: %State{
+          goal: String.t(),
+          sub_goals: String.t(),
+          previous_actions: [Action.t()]
+        }
 
+  defstruct [:goal, :sub_goals, previous_actions: []]
+
+  @spec new(String.t()) :: t()
   def new(goal) do
     %State{
       goal: goal,
-      context: "",
+      sub_goals: "",
       previous_actions: []
     }
   end
 
+  @spec add_action(t(), Action.t()) :: t()
   def add_action(%State{} = state, action) do
     %State{
       state
@@ -19,6 +27,7 @@ defmodule Agenx.State do
     }
   end
 
+  @spec to_string(t()) :: String.t()
   def to_string(%State{} = state) do
     previous_actions =
       state.previous_actions
@@ -29,7 +38,10 @@ defmodule Agenx.State do
 
     """
     Goal: #{state.goal}
-    Context: #{state.context}
+
+    Sub Goals:
+    #{state.sub_goals}
+
     Previous actions:
     #{previous_actions}
     """

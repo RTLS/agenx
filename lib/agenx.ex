@@ -7,7 +7,8 @@ defmodule Agenx do
 
   alias Agenx.{
     LLM,
-    State
+    State,
+    Tools
   }
 
   @log_prefix "Agenx"
@@ -28,14 +29,16 @@ defmodule Agenx do
   end
 
   defp loop(state, retries) do
-    with {:ok, action} <- LLM.next_action(state),
-         {:ok, result} <- LLM.perform_action(action) do
+    with {:ok, sub_goals} <- LLM.update_sub_goals(state),
+         state <- %{state | sub_goals: sub_goals},
+         {:ok, action} <- LLM.next_action(state),
+         {:ok, result} <- perform_action(state, action) do
       action = State.Action.add_result(action, result)
       state = State.add_action(state, action)
 
       if LLM.done?(state) do
         Logger.info("[#{@log_prefix}] Goal achieved!")
-        {:ok, state}
+        LLM.finish(state)
       else
         loop(state)
       end
@@ -44,6 +47,13 @@ defmodule Agenx do
         Logger.error("[#{@log_prefix}] Error: #{error}")
 
         loop(state, retries + 1)
+    end
+  end
+
+  defp perform_action(%State{} = state, %State.Action{} = action) do
+    with {:ok, tool} <- Tools.choose(state, action),
+         {:ok, result} <- Tools.perform_action(tool, state, action) do
+      {:ok, result}
     end
   end
 end

@@ -12,8 +12,6 @@ defmodule Agenx.LLM do
     In one sentence, what is the next action to take to achieve your goal?
     """
 
-    Logger.debug("[#{@log_prefix}]\n#{prompt}")
-
     case OpenAI.completion(%{prompt: prompt}) do
       {:ok, %{"choices" => [%{"text" => text}]}} ->
         Logger.info("[#{@log_prefix}] Next action: #{text}")
@@ -24,18 +22,20 @@ defmodule Agenx.LLM do
     end
   end
 
-  def perform_action(%State.Action{} = action) do
+  def update_sub_goals(%State{} = state) do
     prompt = """
-    #{action.name}
+    #{State.to_string(state)}
 
-    In one sentence, what is the result of this action?
+    Re-prioritize your sub-goals, add any new ones, and remove any completed ones.
+
+    Order your sub-goals from most important (1.) to least important (n.), and separate them with a newline.
+
+    Each goal should be about a sentence.
     """
 
-    Logger.debug("[#{@log_prefix}]\n#{prompt}")
-
-    case OpenAI.completion(%{prompt: prompt}) do
+    case OpenAI.completion(%{prompt: prompt, max_tokens: 2048}) do
       {:ok, %{"choices" => [%{"text" => text}]}} ->
-        Logger.info("[#{@log_prefix}] Result: #{text}")
+        Logger.info("[#{@log_prefix}] Sub goals:\n#{text}")
         {:ok, String.trim(text)}
 
       {:error, error} ->
@@ -50,12 +50,27 @@ defmodule Agenx.LLM do
     Is this goal achieved? (YES/NO)
     """
 
-    Logger.debug("[#{@log_prefix}]\n#{prompt}")
-
     case OpenAI.completion(%{prompt: prompt, temperature: 0}) do
       {:ok, %{"choices" => [%{"text" => text}]}} ->
         Logger.info("[#{@log_prefix}] Done? #{text}")
         String.downcase(text) =~ "yes"
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  def finish(%State{} = state) do
+    prompt = """
+    #{State.to_string(state)}
+
+    Summarize the goal and the conclusion in a few sentences.
+    """
+
+    case OpenAI.completion(%{prompt: prompt, max_tokens: 2048}) do
+      {:ok, %{"choices" => [%{"text" => text}]}} ->
+        Logger.info("[#{@log_prefix}] Final result: #{text}")
+        {:ok, String.trim(text)}
 
       {:error, error} ->
         {:error, error}
