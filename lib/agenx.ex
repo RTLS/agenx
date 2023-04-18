@@ -29,14 +29,9 @@ defmodule Agenx do
   end
 
   defp loop(state, retries) do
-    with {:ok, sub_goals} <- LLM.update_sub_goals(state),
-         state <- %{state | sub_goals: sub_goals},
-         {:ok, action} <- LLM.next_action(state),
-         {:ok, result} <- perform_action(state, action) do
-      action = State.Action.add_result(action, result)
-      state = State.add_action(state, action)
-
-      if LLM.done?(state) do
+    with {:ok, state} <- LLM.update_sub_goals(state),
+         {:ok, state} <- perform_action(state) do
+      if state.sub_goals == [] do
         Logger.info("[#{@log_prefix}] Goal achieved!")
         LLM.finish(state)
       else
@@ -50,10 +45,19 @@ defmodule Agenx do
     end
   end
 
-  defp perform_action(%State{} = state, %State.Action{} = action) do
-    with {:ok, tool} <- Tools.choose(state, action),
-         {:ok, result} <- Tools.perform_action(tool, state, action) do
-      {:ok, result}
+  defp perform_action(%State{} = state) do
+    [next_sub_goal | rest_sub_goals] = state.sub_goals
+
+    with {:ok, tool} <- Tools.choose(state, next_sub_goal),
+         {:ok, result} <- Tools.perform_action(tool, state, next_sub_goal) do
+      action = %State.Action{name: next_sub_goal, result: result}
+
+      {:ok,
+       %State{
+         state
+         | sub_goals: rest_sub_goals,
+           previous_actions: [action | state.previous_actions]
+       }}
     end
   end
 end

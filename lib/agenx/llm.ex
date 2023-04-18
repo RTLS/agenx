@@ -5,42 +5,68 @@ defmodule Agenx.LLM do
 
   @log_prefix inspect(__MODULE__)
 
-  def next_action(state) do
-    prompt = """
-    #{State.to_string(state)}
+  def update_sub_goals(%State{} = state) do
+    prompt =
+      """
+      PREVIOUS TASKS:
+      #{format_previous_actions(state)}
+      END OF TASKS
 
-    In one sentence, what is the next action to take to achieve your goal?
-    """
+      FUTURE TASKS:
+      #{format_current_sub_goals(state)}
+      END OF TASKS
 
-    case OpenAI.completion(%{prompt: prompt}) do
+      Consider the ultimate objective of the AI: #{state.goal}.
+
+      You are a task prioritization AI. You are tasked with cleaning, formatting and reprioritizing FUTURE TASKS.
+
+      Return the result as a numbered list, like:
+      #. First task
+      #. Second task
+
+      The starting task is number #{length(state.previous_actions) + 1}.
+
+      CLEANED FUTURE TASKS:
+      #{length(state.previous_actions) + 1}:
+      """
+      |> String.trim()
+
+    case OpenAI.completion(%{prompt: prompt, max_tokens: 2048, stop: ["END", "\n\n"]}) do
       {:ok, %{"choices" => [%{"text" => text}]}} ->
-        Logger.info("[#{@log_prefix}] Next action: #{text}")
-        {:ok, text |> String.trim() |> State.Action.new()}
+        Logger.info("[#{@log_prefix}] Updated sub goals:\n#{text}")
+
+        sub_goals =
+          text
+          |> String.trim()
+          |> String.split("\n")
+          |> Enum.map(&String.trim/1)
+
+        {:ok, %State{state | sub_goals: sub_goals}}
 
       {:error, error} ->
         {:error, error}
     end
   end
 
-  def update_sub_goals(%State{} = state) do
-    prompt = """
-    #{State.to_string(state)}
+  defp format_current_sub_goals(%State{sub_goals: []}) do
+    "None"
+  end
 
-    Re-prioritize your sub-goals, add any new ones, and remove any completed ones.
+  defp format_current_sub_goals(%State{} = state) do
+    state.sub_goals
+    |> Enum.join("\n")
+  end
 
-    Order your sub-goals from most important (1.) to least important (n.), and separate them with a newline.
+  defp format_previous_actions(%State{previous_actions: []}) do
+    "None"
+  end
 
-    Each goal should be about a sentence.
-    """
-
-    case OpenAI.completion(%{prompt: prompt, max_tokens: 2048}) do
-      {:ok, %{"choices" => [%{"text" => text}]}} ->
-        Logger.info("[#{@log_prefix}] Sub goals:\n#{text}")
-        {:ok, String.trim(text)}
-
-      {:error, error} ->
-        {:error, error}
-    end
+  defp format_previous_actions(%State{} = state) do
+    state.previous_actions
+    |> Enum.take(5)
+    |> Enum.reverse()
+    |> Enum.map(fn %State.Action{} = action -> action.name end)
+    |> Enum.join("\n")
   end
 
   def done?(state) do
@@ -60,11 +86,12 @@ defmodule Agenx.LLM do
     end
   end
 
+  @spec finish(%State{}) :: {:ok, String.t()} | {:error, any()}
   def finish(%State{} = state) do
     prompt = """
     #{State.to_string(state)}
 
-    Summarize the goal and the conclusion in a few sentences.
+    Print the result of the goal:
     """
 
     case OpenAI.completion(%{prompt: prompt, max_tokens: 2048}) do

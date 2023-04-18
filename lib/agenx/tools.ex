@@ -7,18 +7,25 @@ defmodule Agenx.Tools do
   }
 
   @tools %{
-    "User Input" => Agenx.Tools.UserInput,
-    "Large Language Model" => Agenx.Tools.LLM
+    "Ask a Human" => Agenx.Tools.UserInput,
+    "Generate Text" => Agenx.Tools.LLM
   }
 
-  @spec choose(State.t(), State.Action.t()) :: {:ok, module()} | {:error, any()}
-  def choose(%State{} = _state, %State.Action{} = action) do
+  @spec choose(State.t(), String.t()) :: {:ok, module()} | {:error, any()}
+  def choose(%State{} = state, sub_goal) do
     prompt = """
+    You are a tool-choosing AI.
+
     Tool List:
     #{tools_list()}
 
-    Please choose a tool from the tool list to perform this action:
-      #{action.name}:
+    Keep in mind the ultimate objective for the AI:
+    #{state.goal}
+
+    Choose the best tool from the list above to perform the following task:
+    #{sub_goal}
+
+    Tool:
     """
 
     case OpenAI.completion(%{prompt: prompt}) do
@@ -37,8 +44,9 @@ defmodule Agenx.Tools do
     end
   end
 
-  def perform_action(tool, %State{} = state, %State.Action{} = action) do
-    tool.perform_action(state, action)
+  @spec perform_action(module(), State.t(), String.t()) :: {:ok, any()} | {:error, any()}
+  def perform_action(tool, %State{} = state, sub_goal) do
+    tool.perform_action(state, sub_goal)
   end
 
   defp tools_list do

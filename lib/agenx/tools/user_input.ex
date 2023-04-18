@@ -2,14 +2,21 @@ defmodule Agenx.Tools.UserInput do
   alias Agenx.OpenAI
   alias Agenx.State
 
-  def perform_action(%State{} = state, %State.Action{} = action) do
+  @spec perform_action(State.t(), String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def perform_action(%State{} = state, sub_goal) do
     prompt = """
-    State:
-    #{State.to_string(state)}
+    You are an AI that can ask one (1) question to a human.
 
-    You are trying to #{action.name}
+    The ultimate objective for your team is:
+    #{state.goal}
 
-    You may ask the user one (1) question for input. What would you like to ask?
+    Recently completed tasks:
+    #{format_previous_actions(state)}
+
+    Your current task:
+    #{sub_goal}
+
+    Question:
     """
 
     case OpenAI.completion(%{prompt: prompt}) do
@@ -20,13 +27,24 @@ defmodule Agenx.Tools.UserInput do
         response = IO.gets("Response: ")
 
         {:ok,
-         """
-           I asked the user: #{text}
-           User response: #{response}
-         """}
+         String.trim("""
+         I asked the user: #{text}
+         User response: #{String.trim(response)}
+         """)}
 
       {:error, error} ->
         {:error, error}
     end
+  end
+
+  defp format_previous_actions(%State{} = state) do
+    state.previous_actions
+    |> Enum.map(fn action ->
+      """
+      - #{action.name}
+        #{action.result}
+      """
+    end)
+    |> Enum.join("\n")
   end
 end

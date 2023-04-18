@@ -4,7 +4,7 @@ defmodule Agenx.State do
 
   @type t :: %State{
           goal: String.t(),
-          sub_goals: String.t(),
+          sub_goals: [String.t()],
           previous_actions: [Action.t()]
         }
 
@@ -14,7 +14,7 @@ defmodule Agenx.State do
   def new(goal) do
     %State{
       goal: goal,
-      sub_goals: "",
+      sub_goals: [],
       previous_actions: []
     }
   end
@@ -36,11 +36,15 @@ defmodule Agenx.State do
       |> Enum.map(&Action.to_string/1)
       |> Enum.join("\n")
 
+    sub_goals =
+      state.sub_goals
+      |> Enum.join("\n")
+
     """
     Goal: #{state.goal}
 
     Sub Goals:
-    #{state.sub_goals}
+    #{sub_goals}
 
     Previous actions:
     #{previous_actions}

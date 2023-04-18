@@ -23,14 +23,14 @@ defmodule Agenx.OpenAI do
     model: "text-embedding-ada-002"
   }
 
-  plug(Tesla.Middleware.BaseUrl, "https://api.openai.com/v1")
+  plug Tesla.Middleware.BaseUrl, "https://api.openai.com/v1"
 
-  plug(Tesla.Middleware.Headers, [
+  plug Tesla.Middleware.Headers, [
     {"Authorization", "Bearer #{@openai_api_key}"},
     {"Content-Type", "application/json"}
-  ])
+  ]
 
-  plug(Tesla.Middleware.JSON)
+  plug Tesla.Middleware.JSON
 
   @doc """
   Call the OpenAI Completion API with the given parameters.
